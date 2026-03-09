@@ -1,0 +1,619 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jornada de Talentos</title>
+    
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <style>
+        :root {
+            --brand-green: #00e055;
+            --brand-dark: #020f1f;
+            --brand-blue: #0a2e52;
+        }
+
+        body {
+            margin: 0; overflow: hidden;
+            background-color: var(--brand-dark);
+            background: radial-gradient(circle at center, #0a2e52 0%, #020f1f 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            touch-action: none; user-select: none;
+        }
+
+        #game-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; cursor: crosshair; }
+
+        /* MENSAGEM DO BOSS */
+        #bossMessage {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 100%; text-align: center; pointer-events: none; z-index: 50;
+            text-shadow: 0 0 20px black;
+        }
+        .boss-text {
+            font-size: 2.5rem; font-weight: 900; color: #ef4444;
+            text-transform: uppercase; letter-spacing: 2px;
+            animation: pulseText 0.5s infinite alternate;
+        }
+        .boss-sub { font-size: 1.2rem; color: white; margin-top: 10px; font-weight: bold; }
+        
+        @keyframes pulseText { from { transform: scale(1); } to { transform: scale(1.1); } }
+        @keyframes slideIn { 
+            0% { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } 
+            10% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+            90% { opacity: 1; } 
+            100% { opacity: 0; }
+        }
+
+        /* UI LAYER */
+        .ui-layer {
+            position: absolute; top: 20px; left: 0; width: 100%;
+            display: flex; justify-content: space-between; align-items: flex-start;
+            padding: 0 24px; pointer-events: none; z-index: 10;
+        }
+        .ui-group { display: flex; gap: 10px; }
+        .status-box {
+            background: rgba(2, 15, 31, 0.85); border: 1px solid rgba(0, 224, 85, 0.3);
+            padding: 8px 16px; border-radius: 8px; backdrop-filter: blur(4px);
+            min-width: 80px; text-align: center;
+        }
+        .status-label { font-size: 0.7rem; color: #94a3b8; text-transform: uppercase; font-weight: bold; }
+        .status-value { font-size: 1.2rem; font-weight: bold; color: white; font-family: monospace; }
+        .btn-restart-icon {
+            background: rgba(2, 15, 31, 0.85); border: 1px solid rgba(255, 255, 255, 0.3);
+            color: white; width: 45px; height: 45px; border-radius: 8px;
+            cursor: pointer; pointer-events: auto; display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; transition: all 0.2s;
+        }
+        .btn-restart-icon:hover { background: var(--brand-green); color: var(--brand-dark); border-color: var(--brand-green); }
+
+        /* MODAIS */
+        .modal {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(2, 15, 31, 0.98); display: flex; flex-direction: column;
+            justify-content: flex-start; align-items: center; z-index: 100;
+            padding: 60px 20px 20px 20px; text-align: center; overflow-y: auto; pointer-events: auto;
+        }
+        .hidden { display: none !important; }
+
+        /* QUIZ STYLES */
+        .quiz-box {
+            background: rgba(15, 23, 42, 0.98); border: 2px solid var(--brand-green);
+            border-radius: 16px; padding: 24px; max-width: 600px; width: 100%;
+            box-shadow: 0 0 50px rgba(0, 224, 85, 0.2); margin: auto 0;
+        }
+        .quiz-question { font-size: 1.1rem; font-weight: bold; margin-bottom: 20px; color: white; line-height: 1.4; }
+        .quiz-option {
+            background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.2);
+            padding: 14px; margin-bottom: 10px; border-radius: 8px;
+            cursor: pointer; transition: all 0.2s; text-align: left; font-size: 0.95rem;
+        }
+        .quiz-option:hover { background: rgba(0, 224, 85, 0.1); border-color: var(--brand-green); }
+        .quiz-option.correct { background: var(--brand-green); color: #020f1f; font-weight: bold; border-color: var(--brand-green); }
+        .quiz-option.wrong { background: #ef4444; border-color: #ef4444; animation: shake 0.4s; }
+        @keyframes shake { 0%, 100% {transform: translateX(0);} 25% {transform: translateX(-5px);} 75% {transform: translateX(5px);} }
+
+        /* GERAIS */
+        .btn {
+            margin-top: 20px; padding: 16px 48px; font-size: 1.1rem;
+            background: var(--brand-green); color: var(--brand-dark); border: none; border-radius: 4px;
+            cursor: pointer; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
+            box-shadow: 0 0 20px rgba(0, 224, 85, 0.3); transition: transform 0.1s;
+        }
+        .btn:active { transform: scale(0.96); }
+        .btn-download {
+            margin-top: 10px; padding: 12px 30px; font-size: 1rem;
+            background: white; color: var(--brand-dark); border: 2px solid white;
+            border-radius: 4px; cursor: pointer; font-weight: 800; text-transform: uppercase;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .btn-download:hover { background: #e2e8f0; }
+        .name-input {
+            background: rgba(255, 255, 255, 0.1); border: 2px solid var(--brand-green);
+            color: white; padding: 12px 20px; font-size: 1.2rem; border-radius: 8px;
+            margin-bottom: 20px; width: 100%; max-width: 300px; text-align: center; outline: none;
+        }
+
+        /* CERTIFICADO */
+        .certificate-box {
+            background: radial-gradient(circle at center, #0a2e52 0%, #020f1f 100%);
+            border: 2px solid var(--brand-green); padding: 30px; border-radius: 12px;
+            max-width: 650px; width: 95%; box-shadow: 0 0 50px rgba(0, 224, 85, 0.15);
+            position: relative; margin-bottom: 20px;
+        }
+        .corner { position: absolute; width: 20px; height: 20px; border-color: var(--brand-green); border-style: solid; }
+        .tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+        .tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+        .bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+        .br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+        .logo-main { font-size: 3rem; font-weight: 900; letter-spacing: -1px; color: white; display: none; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-layer">
+        <div class="ui-group">
+            <div class="status-box">
+                <div class="status-label">Status</div>
+                <div class="status-value" id="statusText" style="color: var(--brand-green)">Aguardando</div>
+            </div>
+            <div class="status-box">
+                <div class="status-label">Tempo</div>
+                <div class="status-value" id="timerDisplay">00:00</div>
+            </div>
+        </div>
+        <button class="btn-restart-icon" onclick="resetToStart()" title="Reiniciar">↻</button>
+    </div>
+
+    <div id="bossMessage" class="hidden">
+        <div class="boss-text">⚠ ATENÇÃO ⚠</div>
+        <div class="boss-text" style="font-size: 1.8rem; margin-top: 10px;">CLIQUE NO BUG RAPIDAMENTE!</div>
+        <div class="boss-sub">Toque várias vezes para destruir</div>
+    </div>
+
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <div id="startModal" class="modal">
+        <div class="mb-8 logo-container">
+            <img src="logo-empresa.png" alt="Logo Empresa" class="w-96 mx-auto" onerror="this.style.display='none'; document.getElementById('backupLogoStart').style.display='block'">
+            <div id="backupLogoStart" class="logo-main"></div>
+        </div>
+        <p class="text-white text-lg font-bold max-w-md mb-6 leading-relaxed px-4">
+            Estabeleça o sinal e descubra a mensagem que temos para você.
+        </p>
+        <input type="text" id="playerNameInput" class="name-input" placeholder="Digite seu nome" maxlength="25">
+        <p class="text-xs text-gray-500 mb-6">(Cuidado com a instabilidade do sinal)</p>
+        <button class="btn" onclick="startGame()">INICIAR</button>
+    </div>
+
+    <div id="quizModal" class="modal hidden" style="background: rgba(2, 15, 31, 0.95);">
+        <div class="quiz-box">
+            <h3 class="text-[#00e055] text-xs uppercase tracking-widest mb-2 border-b border-gray-700 pb-2" id="quizTitle">Etapa</h3>
+            <div id="questionText" class="quiz-question"></div>
+            <div id="optionsContainer"></div>
+        </div>
+    </div>
+
+    <div id="winModal" class="modal hidden">
+        <div class="certificate-box" id="captureArea">
+            <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+            
+            <img src="logo-empresa.png" alt="Logo Empresa" class="w-64 mx-auto mb-4 mt-4" onerror="this.style.display='none'">
+            
+            <p class="text-lg text-[#00e055] font-bold mb-2 mt-2">Sua jornada de sucesso merece aplausos 👏</p>
+            <h1 id="certificateName" class="text-3xl md:text-4xl font-black text-white mb-6 underline decoration-[#00e055] underline-offset-8 decoration-2 break-words">Nome</h1>
+            <p class="text-gray-300 mb-4 leading-relaxed text-sm md:text-base">Este reconhecimento celebra a dedicação, o aprendizado e o crescimento profissional ao longo dessa jornada.</p>
+            <p class="text-gray-300 mb-8 leading-relaxed text-sm md:text-base">Que essa troca, as conexões construídas e a colaboração sigam impulsionando novos desafios!</p>
+            
+            <img src="logo-secundario.png" alt="Logo Secundário" class="w-32 mx-auto mb-4 mt-4" onerror="this.style.display='none'">
+        </div>
+        <div class="mt-6 flex flex-col items-center gap-3 pb-8">
+            <button onclick="askConfirmation()" class="btn-download"><span>📸</span> BAIXAR CERTIFICADO</button>
+            <button class="btn" onclick="resetToStart()" style="margin-top: 10px; background: transparent; border: 1px solid #00e055; color: #00e055;">JOGAR NOVAMENTE</button>
+        </div>
+    </div>
+
+    <div id="confirmModal" class="modal hidden" style="background: rgba(0,0,0,0.9); z-index: 200; justify-content: center;">
+        <div class="certificate-box" style="max-width: 400px; padding: 40px; margin-bottom: 0;">
+            <p class="text-white text-xl font-bold mb-8">Deseja salvar a imagem?</p>
+            <div class="flex flex-col gap-4 w-full">
+                <button class="btn" style="margin: 0; width: 100%;" onclick="confirmDownload()">SIM, SALVAR</button>
+                <button class="btn" style="margin: 0; width: 100%; background: #475569; color: white;" onclick="closeConfirm()">NÃO, VOLTAR</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="failModal" class="modal hidden">
+        <div class="mb-4 text-center">
+            <div style="color: #64748b; font-size: 3rem; font-weight: 900;">SINAL</div>
+            <div style="color: #64748b; font-size: 1.5rem; font-weight: bold; margin-top: -10px;">PERDIDO</div>
+        </div>
+        <p class="text-gray-400 mt-2 px-4 font-bold">Conexão instável ou tempo esgotado.</p>
+        <button class="btn" style="background: white; color: #020f1f;" onclick="resetToStart()">TENTAR NOVAMENTE</button>
+    </div>
+
+    <script>
+        // --- SAFE AUDIO SYSTEM ---
+        let audioCtx;
+        try {
+            const AudioContext = window.AudioContext || window.webkitAudioContext;
+            if (AudioContext) audioCtx = new AudioContext();
+        } catch (e) { console.warn("Áudio não suportado"); }
+
+        const Sound = {
+            playTone: (freq, type, duration, vol = 0.1) => {
+                if (!audioCtx) return;
+                try {
+                    const osc = audioCtx.createOscillator();
+                    const gain = audioCtx.createGain();
+                    osc.type = type;
+                    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + duration);
+                    osc.connect(gain);
+                    gain.connect(audioCtx.destination);
+                    osc.start(); osc.stop(audioCtx.currentTime + duration);
+                } catch(e) {}
+            },
+            connect: () => { Sound.playTone(440, 'sine', 0.1); setTimeout(() => Sound.playTone(880, 'sine', 0.2), 100); },
+            correct: () => { Sound.playTone(523, 'triangle', 0.1); setTimeout(() => Sound.playTone(659, 'triangle', 0.1), 100); setTimeout(() => Sound.playTone(784, 'triangle', 0.3), 200); },
+            wrong: () => { Sound.playTone(150, 'sawtooth', 0.3, 0.2); setTimeout(() => Sound.playTone(100, 'sawtooth', 0.3, 0.2), 150); },
+            break: () => { Sound.playTone(100, 'sawtooth', 0.1, 0.3); setTimeout(() => Sound.playTone(50, 'square', 0.2, 0.3), 100); },
+            bossSpawn: () => { Sound.playTone(100, 'sawtooth', 0.5, 0.4); setTimeout(() => Sound.playTone(80, 'sawtooth', 0.5, 0.4), 200); },
+            hit: () => { Sound.playTone(300, 'square', 0.05, 0.2); },
+            explosion: () => { Sound.playTone(100, 'sawtooth', 0.3, 0.5); setTimeout(() => Sound.playTone(50, 'square', 0.5, 0.5), 100); },
+            win: () => { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => Sound.playTone(f, 'square', 0.4, 0.1), i * 150)); }
+        };
+
+        // --- DADOS DO QUIZ ---
+        const QUIZ_DATA = [
+            {
+                title: "Etapa: ONBOARDING",
+                q: "Qual postura melhor reflete a integração à cultura ágil da empresa nos primeiros dias?",
+                options: ["Aguardar definições formais para evitar erros", "Demonstrar proatividade investigativa e alinhar-se aos valores", "Focar apenas nas ferramentas técnicas", "Replicar exatamente o que fazia antes"],
+                correct: 1
+            },
+            {
+                title: "Etapa: TREINAMENTO",
+                q: "Diante de um processo técnico complexo, qual a estratégia de aprendizado mais eficaz?",
+                options: ["Memorizar o passo a passo sem questionar", "Focar apenas nos módulos interessantes", "Evitar perguntar para não parecer leigo", "Mapear dúvidas e buscar o 'porquê' dos processos"],
+                correct: 3
+            },
+            {
+                title: "Etapa: PRÁTICA",
+                q: "Ao identificar uma falha operacional não prevista, qual a ação recomendada?",
+                options: ["Resolver sozinho para não gerar alarde", "Documentar, comunicar a liderança e propor correção", "Seguir o fluxo normal", "Culpar a instabilidade sistêmica"],
+                correct: 1
+            },
+            {
+                title: "Etapa: FEEDBACK",
+                q: "Como interpretar um feedback corretivo sobre uma entrega que você considerava perfeita?",
+                options: ["Como perseguição do gestor", "Como dado objetivo para aprimorar a entrega", "Como sinal para abandonar o projeto", "Como burocracia desnecessária"],
+                correct: 1
+            },
+            {
+                title: "Etapa: BOSS BATTLE - CONCLUSÃO",
+                q: "O ciclo se encerra. O que define um profissional pronto para os próximos desafios?",
+                options: ["Apenas cumprir horário", "Transformar conexões e aprendizados em resultados", "Decorar manuais", "Nunca ter errado"],
+                correct: 1
+            }
+        ];
+
+        // --- VARIAVEIS GLOBAIS ---
+        let canvas, ctx;
+        let modals = {}, dom = {};
+        
+        // --- ESTADO DO JOGO ---
+        let state = {
+            active: false, width: 0, height: 0,
+            nodes: [], connections: [], bgParticles: [], enemies: [],
+            boss: { active: false, x: 0, y: 0, size: 50, angle: 0, hp: 5, maxHp: 5, hitFlash: 0 },
+            dragStart: null, mouse: {x: 0, y: 0},
+            playerName: "", currentLevel: 0,
+            quizActive: false, pendingConnection: null,
+            shake: 0, timeLimit: 90, startTime: 0
+        };
+
+        const COLORS = { green: '#00e055', dark: '#020f1f', blue: '#0a2e52', white: '#fff', red: '#ef4444' };
+        
+        const NODES_POS = [
+            { x: 0.1, y: 0.8, label: "Início" },
+            { x: 0.25, y: 0.15, label: "Onboarding" },
+            { x: 0.45, y: 0.85, label: "Treino" },
+            { x: 0.65, y: 0.15, label: "Prática" },
+            { x: 0.8, y: 0.85, label: "Feedback" },
+            { x: 0.92, y: 0.4, label: "Conclusão" }
+        ];
+
+        window.onload = function() {
+            canvas = document.getElementById('gameCanvas');
+            if(!canvas) return;
+            ctx = canvas.getContext('2d');
+            
+            modals = { 
+                start: document.getElementById('startModal'), 
+                quiz: document.getElementById('quizModal'), 
+                win: document.getElementById('winModal'), 
+                fail: document.getElementById('failModal'),
+                confirm: document.getElementById('confirmModal')
+            };
+            
+            dom = {
+                nameInput: document.getElementById('playerNameInput'),
+                certName: document.getElementById('certificateName'),
+                status: document.getElementById('statusText'),
+                timer: document.getElementById('timerDisplay'),
+                captureArea: document.getElementById('captureArea'),
+                quizTitle: document.getElementById('quizTitle'),
+                question: document.getElementById('questionText'),
+                options: document.getElementById('optionsContainer'),
+                bossMessage: document.getElementById('bossMessage')
+            };
+
+            resize();
+            window.addEventListener('resize', resize);
+            
+            ['mousedown', 'touchstart'].forEach(e => canvas.addEventListener(e, handleInputStart, {passive: false}));
+            ['mousemove', 'touchmove'].forEach(e => window.addEventListener(e, handleInputMove, {passive: false}));
+            ['mouseup', 'touchend'].forEach(e => window.addEventListener(e, handleInputEnd));
+        };
+
+        function resize() {
+            state.width = window.innerWidth; state.height = window.innerHeight;
+            if(canvas) { canvas.width = state.width; canvas.height = state.height; }
+            if(state.nodes.length) state.nodes.forEach((n, i) => { n.x = NODES_POS[i].x * state.width; n.y = NODES_POS[i].y * state.height; });
+        }
+
+        // --- FUNÇÕES DE JOGO ---
+
+        function startGame() {
+            if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume().catch(e=>{});
+            state.playerName = (dom.nameInput && dom.nameInput.value.trim()) ? dom.nameInput.value.trim() : "Talento";
+            
+            state.nodes = NODES_POS.map((pos, i) => ({
+                x: pos.x * window.innerWidth, y: pos.y * window.innerHeight,
+                id: i, label: pos.label, connected: i === 0
+            }));
+            
+            state.connections = [];
+            state.currentLevel = 0;
+            state.active = true;
+            state.quizActive = false;
+            state.startTime = Date.now();
+            
+            state.bgParticles = Array(30).fill().map(() => ({
+                x: Math.random() * window.innerWidth, y: Math.random() * window.innerHeight,
+                size: Math.random() * 2, speed: Math.random() * 0.5 + 0.2, alpha: Math.random() * 0.5
+            }));
+            state.enemies = Array(20).fill().map(() => createEnemy());
+            state.boss = { active: false, x: 0, y: 0, size: 50, angle: 0, hp: 5, maxHp: 5, hitFlash: 0 };
+
+            Object.values(modals).forEach(m => m && m.classList.add('hidden'));
+            if(dom.bossMessage) dom.bossMessage.classList.add('hidden');
+            if(dom.status) { dom.status.innerText = "Conecte"; dom.status.style.color = COLORS.green; }
+            
+            resize();
+            loop();
+        }
+
+        function resetToStart() {
+            Object.values(modals).forEach(m => m && m.classList.add('hidden'));
+            if(dom.bossMessage) dom.bossMessage.classList.add('hidden');
+            if(modals.start) modals.start.classList.remove('hidden');
+            state.active = false;
+        }
+
+        function createEnemy() {
+            return { x: Math.random()*window.innerWidth, y: Math.random()*window.innerHeight, vx: (Math.random()-0.5)*2.0, vy: (Math.random()-0.5)*2.0, size: Math.random()*4+2 };
+        }
+
+        // --- LÓGICA DO QUIZ ---
+
+        function triggerQuiz(targetId) {
+            Sound.connect();
+            state.quizActive = true;
+            state.pendingConnection = targetId;
+            
+            const qIdx = targetId - 1;
+            const data = QUIZ_DATA[qIdx] || QUIZ_DATA[0];
+            
+            if(dom.quizTitle) dom.quizTitle.innerText = data.title;
+            if(dom.question) dom.question.innerText = data.q;
+            if(dom.options) {
+                dom.options.innerHTML = "";
+                data.options.forEach((opt, idx) => {
+                    const btn = document.createElement('div');
+                    btn.className = "quiz-option";
+                    btn.innerText = opt;
+                    btn.onclick = () => handleAnswer(idx, data.correct, btn);
+                    dom.options.appendChild(btn);
+                });
+            }
+            if(modals.quiz) modals.quiz.classList.remove('hidden');
+        }
+
+        function handleAnswer(selected, correct, btn) {
+            if (selected === correct) {
+                Sound.correct();
+                btn.classList.add('correct');
+                setTimeout(() => {
+                    if(modals.quiz) modals.quiz.classList.add('hidden');
+                    completeConnection();
+                }, 600);
+            } else {
+                Sound.wrong();
+                btn.classList.add('wrong');
+                state.shake = 20;
+                setTimeout(() => {
+                    if(modals.quiz) modals.quiz.classList.add('hidden');
+                    state.pendingConnection = null;
+                    state.quizActive = false;
+                    spawnParticles(state.nodes[state.currentLevel].x, state.nodes[state.currentLevel].y, COLORS.red);
+                }, 600);
+            }
+        }
+
+        function completeConnection() {
+            state.quizActive = false;
+            const targetId = state.pendingConnection;
+            if(targetId === null) return;
+
+            state.connections.push({ from: targetId - 1, to: targetId });
+            state.nodes[targetId].connected = true;
+            state.currentLevel = targetId;
+            spawnParticles(state.nodes[targetId].x, state.nodes[targetId].y, COLORS.green);
+            
+            if (targetId === 4) setTimeout(activateBoss, 500);
+            if (targetId === 5) {
+                if(state.boss.active) killBoss();
+                setTimeout(gameWin, 800);
+            }
+        }
+
+        // --- INPUTS ---
+        function handleInputStart(ev) {
+            const pos = getPos(ev);
+            if (state.boss.active && Math.hypot(state.boss.x - pos.x, state.boss.y - pos.y) < state.boss.size + 10) { damageBoss(); return; }
+            if(!state.active || state.quizActive) return; 
+            const node = state.nodes.find(n => Math.hypot(n.x - pos.x, n.y - pos.y) < 40);
+            if(node && node.id === state.currentLevel && node.id < 5) state.dragStart = node;
+        }
+
+        function handleInputMove(ev) { if(state.dragStart) state.mouse = getPos(ev); }
+
+        function handleInputEnd() {
+            if(!state.dragStart) return;
+            const target = state.nodes.find(n => Math.hypot(n.x - state.mouse.x, n.y - state.mouse.y) < 40);
+            
+            // Se conectou corretamente, abre o quiz
+            if(target && target.id === state.dragStart.id + 1) {
+                triggerQuiz(target.id);
+            }
+            state.dragStart = null;
+        }
+
+        function getPos(e) {
+            const r = canvas.getBoundingClientRect();
+            const cx = e.touches ? e.touches[0].clientX : e.clientX;
+            const cy = e.touches ? e.touches[0].clientY : e.clientY;
+            return { x: cx - r.left, y: cy - r.top };
+        }
+
+        // --- AUXILIARES (BOSS, WIN, FAIL, PARTICLES) ---
+        function activateBoss() {
+            state.boss.active = true; state.boss.x = state.nodes[5].x; state.boss.y = state.nodes[5].y; state.boss.hp = 5;
+            Sound.bossSpawn(); dom.status.innerText = "ATAQUE!"; dom.status.style.color = '#ef4444';
+            
+            // MOSTRAR MENSAGEM DO BOSS
+            if(dom.bossMessage) {
+                dom.bossMessage.classList.remove('hidden');
+                dom.bossMessage.style.animation = 'none';
+                dom.bossMessage.offsetHeight; /* trigger reflow */
+                dom.bossMessage.style.animation = 'slideIn 4s forwards';
+            }
+        }
+        function damageBoss() {
+            if (!state.boss.active) return;
+            state.boss.hp--; state.boss.hitFlash = 10; Sound.hit();
+            spawnParticles(state.boss.x, state.boss.y, '#ffffff');
+            if (state.boss.hp <= 0) killBoss();
+        }
+        function killBoss() {
+            state.boss.active = false; Sound.explosion(); state.shake = 30;
+            if(dom.bossMessage) dom.bossMessage.classList.add('hidden');
+            dom.status.innerText = "ELIMINADO!"; dom.status.style.color = COLORS.green;
+            for(let i=0; i<3; i++) spawnParticles(state.boss.x, state.boss.y, COLORS.red);
+        }
+        function gameWin() {
+            state.active = false; Sound.win();
+            if(dom.certName) dom.certName.innerText = state.playerName;
+            if(modals.win) modals.win.classList.remove('hidden');
+        }
+        function failGame() { state.active = false; if(modals.fail) modals.fail.classList.remove('hidden'); }
+        function spawnParticles(x, y, color) {
+            for(let i=0; i<25; i++) state.bgParticles.push({x, y, vx: (Math.random()-0.5)*15, vy: (Math.random()-0.5)*15, life: 1, color, size: 3, isExplosion: true});
+        }
+        function askConfirmation() { if(modals.confirm) modals.confirm.classList.remove('hidden'); }
+        function closeConfirm() { if(modals.confirm) modals.confirm.classList.add('hidden'); }
+        function confirmDownload() {
+            closeConfirm();
+            html2canvas(dom.captureArea, { backgroundColor: '#020f1f', scale: 2, logging: false, useCORS: true }).then(canvas => {
+                const link = document.createElement('a');
+                link.download = `Certificado-${state.playerName.replace(/\s+/g, '_')}.png`;
+                link.href = canvas.toDataURL('image/png'); link.click();
+            }).catch(e => alert("Erro ao salvar imagem."));
+        }
+        function failLine(msg) {
+            state.shake = 20; if(dom.status) dom.status.innerText = msg; Sound.break();
+            if(state.mouse) spawnParticles(state.mouse.x, state.mouse.y, '#fff'); state.dragStart = null; 
+        }
+
+        // --- GAME LOOP ---
+        function loop() {
+            if (!state.active) return;
+            
+            const elapsed = (Date.now() - state.startTime) / 1000;
+            const remaining = Math.max(0, state.timeLimit - elapsed);
+            let secs = Math.floor(remaining); let ms = Math.floor((remaining - secs) * 10);
+            if(dom.timer) dom.timer.innerText = `${secs < 10 ? '0'+secs : secs}:${ms}0`;
+            if (remaining <= 0) { failGame(); return; }
+
+            if(state.boss.active) {
+                state.boss.angle += 0.05; const t = (Math.sin(state.boss.angle) + 1) / 2; 
+                state.boss.x = state.nodes[4].x + (state.nodes[5].x - state.nodes[4].x) * t;
+                state.boss.y = state.nodes[4].y + (state.nodes[5].y - state.nodes[4].y) * t;
+                if(state.boss.hitFlash > 0) state.boss.hitFlash--;
+            }
+
+            ctx.clearRect(0, 0, state.width, state.height);
+            ctx.save();
+            if (state.shake > 0) {
+                ctx.translate((Math.random()-0.5)*state.shake, (Math.random()-0.5)*state.shake);
+                state.shake *= 0.9; if(state.shake < 0.5) state.shake = 0;
+            }
+
+            state.bgParticles.forEach((p, i) => {
+                if (p.isExplosion) {
+                    p.x += p.vx; p.y += p.vy; p.life -= 0.05; ctx.globalAlpha = p.life; ctx.fillStyle = p.color;
+                    if(p.life <= 0) state.bgParticles.splice(i, 1);
+                } else {
+                    p.y -= p.speed; if (p.y < 0) p.y = state.height; ctx.globalAlpha = p.alpha; ctx.fillStyle = COLORS.green;
+                }
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+            });
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+            state.enemies.forEach(e => {
+                e.x += e.vx; e.y += e.vy;
+                if(e.x < 0 || e.x > state.width) e.vx *= -1; if(e.y < 0 || e.y > state.height) e.vy *= -1;
+                ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI*2); ctx.fill();
+                if (state.dragStart && Math.hypot(e.x - state.mouse.x, e.y - state.mouse.y) < 25) failLine("Interferência!");
+            });
+
+            ctx.lineWidth = 4;
+            state.connections.forEach(c => {
+                const n1 = state.nodes[c.from], n2 = state.nodes[c.to];
+                ctx.strokeStyle = COLORS.green; ctx.shadowColor = COLORS.green; ctx.shadowBlur = 10;
+                ctx.beginPath(); ctx.moveTo(n1.x, n1.y); ctx.lineTo(n2.x, n2.y); ctx.stroke();
+            });
+            ctx.shadowBlur = 0;
+
+            if (state.dragStart) {
+                if (state.boss.active && Math.hypot(state.boss.x - state.mouse.x, state.boss.y - state.mouse.y) < state.boss.size + 10) failLine("Bloqueado pelo Bug!");
+                if(state.dragStart) {
+                    ctx.strokeStyle = 'rgba(0,224,85,0.5)'; ctx.setLineDash([10, 10]);
+                    ctx.beginPath(); ctx.moveTo(state.dragStart.x, state.dragStart.y); ctx.lineTo(state.mouse.x, state.mouse.y); ctx.stroke(); ctx.setLineDash([]);
+                }
+            }
+
+            if (state.boss.active) {
+                ctx.fillStyle = state.boss.hitFlash > 0 ? '#ffffff' : '#ef4444'; ctx.shadowColor = '#ef4444'; ctx.shadowBlur = 20;
+                ctx.beginPath(); ctx.arc(state.boss.x, state.boss.y, state.boss.size, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = 'white'; ctx.beginPath(); ctx.arc(state.boss.x - 15, state.boss.y - 10, 8, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(state.boss.x + 15, state.boss.y - 10, 8, 0, Math.PI*2); ctx.fill();
+                const barW = 60; const pct = state.boss.hp / state.boss.maxHp;
+                ctx.fillStyle = '#333'; ctx.fillRect(state.boss.x - barW/2, state.boss.y - 70, barW, 8);
+                ctx.fillStyle = '#ef4444'; ctx.fillRect(state.boss.x - barW/2, state.boss.y - 70, barW * pct, 8); ctx.shadowBlur = 0;
+            }
+
+            state.nodes.forEach(n => {
+                ctx.beginPath(); ctx.arc(n.x, n.y, 25, 0, Math.PI*2);
+                if (n.connected) { ctx.fillStyle = COLORS.green; ctx.shadowColor = COLORS.green; ctx.shadowBlur = 20; }
+                else if (n.id === state.currentLevel + 1) { ctx.fillStyle = `rgba(255,255,255,${0.5 + Math.sin(Date.now()*0.005)*0.3})`; ctx.shadowBlur = 0; }
+                else { ctx.fillStyle = COLORS.blue; ctx.shadowBlur = 0; }
+                ctx.fill(); ctx.shadowBlur = 0;
+                ctx.fillStyle = n.connected ? COLORS.dark : 'white'; ctx.font = 'bold 16px Arial'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(n.id + 1, n.x, n.y);
+                ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '12px Segoe UI'; ctx.fillText(n.label, n.x, n.y + 40);
+            });
+
+            ctx.restore();
+            requestAnimationFrame(loop);
+        }
+    </script>
+</body>
+</html>
